@@ -4,12 +4,13 @@ import android.content.Context;
 import android.graphics.PointF;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.annotation.Nullable;
-import android.support.v7.widget.LinearSmoothScroller;
-import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.LinearSmoothScroller;
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -164,6 +165,8 @@ public class StickyHeaderLayoutManager extends RecyclerView.LayoutManager {
 			return;
 		}
 
+		Log.i(TAG, "onLayoutChildren: getChildCount: " + getChildCount() + " adapter count: " + adapter.getItemCount());
+
 		if (scrollTargetAdapterPosition >= 0) {
 			firstViewAdapterPosition = scrollTargetAdapterPosition;
 			firstViewTop = 0;
@@ -190,8 +193,8 @@ public class StickyHeaderLayoutManager extends RecyclerView.LayoutManager {
 		int totalVendedHeight = 0;
 
 		// If we emptied the view with a notify, we may overshoot and fail to draw
-		if (firstViewAdapterPosition > state.getItemCount()) {
-			firstViewAdapterPosition = 0;
+		if (firstViewAdapterPosition >= state.getItemCount()) {
+			firstViewAdapterPosition = state.getItemCount() - 1;
 		}
 
 		// walk through adapter starting at firstViewAdapterPosition stacking each vended item
@@ -280,14 +283,16 @@ public class StickyHeaderLayoutManager extends RecyclerView.LayoutManager {
 			measureChildWithMargins(headerView, 0, 0);
 
 			return headerView;
+		} else {
+			throw new IllegalStateException("createSectionHeaderIfNeeded should not be called for a section which does not have a header");
 		}
-
-		return null;
 	}
 
 
 	@Override
 	public int scrollVerticallyBy(int dy, RecyclerView.Recycler recycler, RecyclerView.State state) {
+
+		//Log.i(TAG, "scrollVerticallyBy: dy: " + dy + " getChildCount: " + getChildCount() + " adapter count: " + adapter.getItemCount());
 
 		if (getChildCount() == 0) {
 			return 0;
@@ -303,6 +308,10 @@ public class StickyHeaderLayoutManager extends RecyclerView.LayoutManager {
 			// content moving downwards, so we're panning to top of list
 
 			View topView = getTopmostChildView();
+			if (topView == null) {
+				return 0;
+			}
+
 			while (scrolled > dy) {
 
 				// get the topmost view
@@ -366,6 +375,9 @@ public class StickyHeaderLayoutManager extends RecyclerView.LayoutManager {
 
 			int parentHeight = getHeight();
 			View bottomView = getBottommostChildView();
+			if (bottomView == null) {
+				return 0;
+			}
 
 			while (scrolled < dy) {
 				int hangingBottom = Math.max(getDecoratedBottom(bottomView) - parentHeight, 0);
@@ -538,6 +550,81 @@ public class StickyHeaderLayoutManager extends RecyclerView.LayoutManager {
 		}
 
 		return topmostView != null ? getViewViewHolder(topmostView) : null;
+	}
+
+	/**
+	 * @param fullyVisibleOnly if true, the search will be limited to the last item not hanging off bottom of screen
+	 * @return the viewholder for the last visible item (not header or footer)
+	 */
+	@Nullable
+	public SectioningAdapter.ItemViewHolder getLastVisibleItemViewHolder(boolean fullyVisibleOnly) {
+		return (SectioningAdapter.ItemViewHolder) getLastVisibleViewHolderOfType(SectioningAdapter.TYPE_ITEM, fullyVisibleOnly);
+	}
+
+	/**
+	 * @param fullyVisibleOnly if true, the search will be limited to the last header not hanging off bottom of screen
+	 * @return the viewholder for the last visible header (not item or footer)
+	 */
+	@Nullable
+	public SectioningAdapter.HeaderViewHolder getLastVisibleHeaderViewHolder(boolean fullyVisibleOnly) {
+		return (SectioningAdapter.HeaderViewHolder) getLastVisibleViewHolderOfType(SectioningAdapter.TYPE_HEADER, fullyVisibleOnly);
+	}
+
+	/**
+	 * @param fullyVisibleOnly if true, the search will be limited to the last footer not hanging off bottom of screen
+	 * @return the viewholder for the last visible footer (not header or item)
+	 */
+	@Nullable
+	public SectioningAdapter.FooterViewHolder getLastVisibleFooterViewHolder(boolean fullyVisibleOnly) {
+		return (SectioningAdapter.FooterViewHolder) getLastVisibleViewHolderOfType(SectioningAdapter.TYPE_FOOTER, fullyVisibleOnly);
+	}
+
+	@Nullable
+	private SectioningAdapter.ViewHolder getLastVisibleViewHolderOfType(int baseType, boolean fullyVisibleOnly) {
+		if (getChildCount() == 0) {
+			return null;
+		}
+
+		final int height = getHeight();
+
+		// note: We can't use child view order because we muck with moving things to front
+		View bottommostView = null;
+		int bottom = 0;
+
+		for (int i = 0, e = getChildCount(); i < e; i++) {
+			View v = getChildAt(i);
+
+			// ignore views which are being deleted
+			if (getViewAdapterPosition(v) == RecyclerView.NO_POSITION) {
+				continue;
+			}
+
+			// filter for desired type
+			if (getViewBaseType(v) != baseType) {
+				continue;
+			}
+
+			// filter out items which are partially or fully obscured
+			int t = getDecoratedTop(v);
+			int b = getDecoratedBottom(v);
+
+			if (fullyVisibleOnly) {
+				if (b < height) {
+					continue;
+				}
+			} else {
+				if (t >= height) {
+					continue;
+				}
+			}
+
+			if (b > bottom) {
+				bottom = b;
+				bottommostView = v;
+			}
+		}
+
+		return bottommostView != null ? getViewViewHolder(bottommostView) : null;
 	}
 
 	@Override

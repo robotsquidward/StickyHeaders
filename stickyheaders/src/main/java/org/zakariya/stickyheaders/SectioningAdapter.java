@@ -2,10 +2,11 @@ package org.zakariya.stickyheaders;
 
 import android.os.Handler;
 import android.os.Looper;
-import android.support.v7.widget.RecyclerView;
 import android.util.SparseBooleanArray;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -267,8 +268,6 @@ public class SectioningAdapter extends RecyclerView.Adapter<SectioningAdapter.Vi
 	 */
 	public GhostHeaderViewHolder onCreateGhostHeaderViewHolder(ViewGroup parent) {
 		View ghostView = new View(parent.getContext());
-		ViewGroup.LayoutParams layoutParams = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-		parent.addView(ghostView, layoutParams);
 		return new GhostHeaderViewHolder(ghostView);
 	}
 
@@ -862,7 +861,6 @@ public class SectioningAdapter extends RecyclerView.Adapter<SectioningAdapter.Vi
 			buildSectionIndex();
 			notifyAllSectionsDataSetChanged();
 		} else {
-			buildSectionIndex();
 			Section section = this.sections.get(sectionIndex);
 
 			// 0 is a valid position to remove from
@@ -881,6 +879,7 @@ public class SectioningAdapter extends RecyclerView.Adapter<SectioningAdapter.Vi
 			}
 
 			notifyItemRangeRemoved(section.adapterPosition + offset, number);
+			buildSectionIndex();
 		}
 
 		if (updateSelectionState) {
